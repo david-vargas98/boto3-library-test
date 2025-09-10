@@ -123,11 +123,76 @@ record_Attr = table.scan(
     FilterExpression=Attr('Rating').gte(Decimal(4.5))
 )
 
-print(record_Attr)
 
-print(table.key_schema)
+print(f"\nRecords filtered by attribute:\n{record_Attr}")
 
-print(client.describe_table(TableName=tableName))
+print(f"\nTable key schema:\n{table.key_schema}")
+
+print(f"\nDescribing table:\n{client.describe_table(TableName=tableName)}")
 
 # delete the table
-table.delete()
+# table.delete()
+
+
+# ------------------- Global secondary index 
+attributes = [
+    {
+        'AttributeName':'Title',
+        'AttributeType':'S'
+    },
+    {
+        'AttributeName':'Rating',
+        'AttributeType':'N'
+    }
+]
+print(f"\nAttributes before:{attributes}")
+
+attributes.append(
+    {
+        'AttributeName':'Director', 'AttributeType':'S'
+    }
+)
+print(f"\nAttributes after:{attributes}")
+
+# defining KEY schema for the global secondary index
+gsi_key_schema = [
+    {
+        'AttributeName':'Director',
+        'KeyType':'HASH'
+    }
+]
+
+gsi_provisioned_throughput = {
+    'ReadCapacityUnits':5,
+    'WriteCapacityUnits':5
+}
+
+# updating table with secondary index
+# response = client.update_table(
+#     TableName=tableName,
+#     AttributeDefinitions=attributes,
+#     GlobalSecondaryIndexUpdates=[{
+#         'Create': {
+#             'IndexName':'idx1',
+#             'KeySchema': gsi_key_schema,
+#             'Projection':{
+#                 'ProjectionType':'ALL'
+#             },
+#             'ProvisionedThroughput': gsi_provisioned_throughput
+#         }
+#     }]
+# )
+
+# print(f"\nUpdate response:\n{response}")
+
+# using the secondary index
+query_sec_idx = client.query(
+    TableName=tableName, # table to query
+    IndexName='idx1', # USE THIS INDEX
+    KeyConditionExpression='Director = :d', # condition using an expression
+    ExpressionAttributeValues={':d':{'S':'Steven Spielberg'}} # expression value
+)
+print(f"\nQuery using secondary index:\n{query_sec_idx}")
+
+# the above query is MUCH FASTER than a scan operation, since using a GSI goes for the indexed data by the director 
+# instead of searching through the whole table
